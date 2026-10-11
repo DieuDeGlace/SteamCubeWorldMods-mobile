@@ -1,3 +1,7 @@
+# SteamCubeWorldMods-mobile
+
+Mobile compatibility version. See [tested setup, changes and installation](MOBILE.md).
+
 # Steam Cube World Mods
 
 These mods were made by DieuDeGlace with the aid of AI: OpenAI ChatGPT/Codex. Original standalone code is MIT licensed; SDK attribution is in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
@@ -32,3 +36,4 @@ Close Steam Cube World. Install a compatible CubeModLoader separately, then copy
 Terrain generation affects loaded world content: keep backups of your saves before experimenting. `FieldBossesState.ini` is gameplay data and is not included. Performance in dense forests and terrain/object alignment across all locations are known areas needing further testing. Build/rule tests and targeted graphics/live checks are not exhaustive gameplay verification.
 
 The separately edited upstream projects are [CubeMegaMod](https://github.com/DieuDeGlace/CubeMegaMod) and [PyroProgression](https://github.com/DieuDeGlace/PyroProgression), published as forks rather than copied into this repository.
+

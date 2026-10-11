@@ -10,3 +10,4 @@ build*/
 *.state
 FieldBossesState.ini
 .vs/
+/build-mobile/

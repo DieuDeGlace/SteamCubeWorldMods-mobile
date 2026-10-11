@@ -159,7 +159,7 @@ static void install(){
  if(!mountainLocationType){log("Mountain location dispatch differs; terrain disabled.");return;}
  {char status[256];sprintf_s(status,"Mountain relief: ordinary amplitude=%.0f, mountain amplitude=%.0f; native location ID=%d; smooth 160-block region-border taper.",amplitude,mountainAmplitude,mountainLocationType);log(status);}
  if(!matches(0x2b4450,"4c8bdc5553415541564157498d6ba8")||!matches(0x2ff6f0,"40554154415541564157488dac24507dffff")||!matches(0xeb90,"40534883ec40488b05f3a053004833c4")){log("Column alignment: unsupported or hooked native code; disabled.");return;}
- if(!matches(0x31d470,"48895c242056574154415641574883ec40")||!matches(0x31d700,"555356574156488d6c24c94881ece0000000")){log("Object cache builders differ; terrain disabled.");return;}
+ if(!matches(0x31d470,"48895c242056574154415641574883ec40")||!matches(0x31d700,"40555356574156488d6c24c94881ece0000000")){log("Object cache builders differ; terrain disabled.");return;}
  Hook hooks[]={{(unsigned char*)(base+0x2b4450),15,(void*)height},{(unsigned char*)(base+0x2ff6f0),18,(void*)generate},{(unsigned char*)(base+0xeb90),16,(void*)lookup}};
  bool ready=true;for(auto& h:hooks)if(!prepare(h)){ready=false;break;}
  if(!ready){for(auto& h:hooks){if(h.protection){DWORD unused;VirtualProtect(h.entry,h.size,h.protection,&unused);}if(h.trampoline)VirtualFree(h.trampoline,0,MEM_RELEASE);}log("Column alignment: hook preparation failed; no patches applied.");return;}
@@ -230,3 +230,4 @@ EXPORT int ModMinorVersion(){return 3;}
 extern "C" __declspec(dllexport) DWORD WINAPI AuditColumnLookup(void*){return terrainmod::auditLookup();}
 extern "C" __declspec(dllexport) DWORD WINAPI AuditDetailPositions(void*){for(unsigned i=0;i<100;i++){auto result=terrainmod::auditDetails();if(result)return result;Sleep(5);}return 0;}
 extern "C" __declspec(dllexport) DWORD WINAPI SnapshotTerrainColumns(void*){for(unsigned i=0;i<100;i++){auto result=terrainmod::snapshotColumns();if(result)return result;Sleep(5);}return 0;}
+
