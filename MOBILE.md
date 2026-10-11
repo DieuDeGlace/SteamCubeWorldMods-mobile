@@ -24,3 +24,6 @@ Use a Windows x64 Visual Studio developer shell with clang-cl and the Windows SD
 TerrainRulesTest passed: bounds, continuity, integer column alignment, translated water ceiling, large relief. PlacementTest passed: all six placement arrays retain every non-Z byte and translate exact fixed-point Z values.
 
 Phone log confirmed installation and generated chunks1,128,256,384, translating57,13954,27178,39790 detail anchors respectively. World/map rendered. This is a short gameplay test; long-session stability and every biome are not yet established. Geo native .NET and the other installed mods remained in the isolated test setup.
+
+## WorldMotion mobile75
+WorldMotion built from the same phone-guard source. Reduced motion config is config/mobile75/WorldMotion.ini: leaf amplitude12, wind75, cloud drift48, cloud speed94; clouds/leaves stay enabled and animation range96 retained. Companion shadows preset: https://github.com/DieuDeGlace/MoonandShadow-mobile .
