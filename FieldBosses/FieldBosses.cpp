@@ -3,6 +3,7 @@
 #include "cwsdk.h"
 #include "../NativeScene.h"
 #include "FieldBossRules.h"
+#include "NativeBossGlow.h"
 #include <vector>
 #include <algorithm>
 #include <cstring>
@@ -23,7 +24,7 @@ static int state(IntVector2 r,unsigned slot,const wchar_t* key,int fallback){ret
 static void save(IntVector2 r,unsigned slot,const wchar_t*key,int value){wchar_t out[32];swprintf_s(out,L"%d",value);WritePrivateProfileStringW(section(r,slot).c_str(),key,out,L".\\Mods\\FieldBossesState.ini");}
 static cube::Creature* resident(cube::World*w,const Active&a){for(auto c:w->creatures)if(c==a.creature&&c->id==a.id)return c;return nullptr;}
 static void restore(cube::Creature*c,const Active&a){auto&e=c->entity_data;float before=maxHP(c);float fraction=before>0?std::clamp(e.HP/before,0.f,1.f):1;e.appearance.flags2=a.flags;e.binary_toggles=a.toggles;e.appearance.graphics_scale=a.graphics;e.appearance.hitbox_scale=a.hitbox;memcpy(e.name,a.oldName,16);e.HP=maxHP(c)*fraction;}
-static void initialize(){if(!nativeScene::supported()){enabled=false;return;}auto setting=[](const wchar_t*k,int v){return (int)GetPrivateProfileIntW(L"FieldBosses",k,v,L".\\Mods\\FieldBosses.ini");};enabled=setting(L"Enabled",1)!=0;slots=std::clamp(setting(L"BossesPerRegion",3),1,6);cap=std::clamp(setting(L"ActiveCap",3),1,6);}
+static void initialize(){if(!nativeScene::supported()){enabled=false;return;}auto setting=[](const wchar_t*k,int v){return (int)GetPrivateProfileIntW(L"FieldBosses",k,v,L".\\Mods\\FieldBosses.ini");};enabled=setting(L"Enabled",1)!=0;slots=std::clamp(setting(L"BossesPerRegion",3),1,6);cap=std::clamp(setting(L"ActiveCap",3),1,6);if(enabled){bool glow=fieldglow::initialize();FILE*f=nullptr;fopen_s(&f,"Mods\\FieldBosses.log","a");if(f){fprintf(f,"Named-boss purple glow hook: %s\n",glow?"installed":"unavailable (native light preserved)");fclose(f);}}}
 static void tick(cube::Game*g){
  if(!enabled)return;
  if(!g||!g->host.running||!g->world||!g->world->local_creature){active.clear();sessionPlayer=nullptr;current=nullptr;return;}
@@ -44,7 +45,7 @@ static void tick(cube::Game*g){
   int savedRace=state(region,slot,L"Race",-1);cube::Creature* choice=nullptr;uint64_t best=UINT64_MAX;
   for(auto c:w->creatures){
    if(!c||c==player)continue;auto&e=c->entity_data;
-   if(e.hostility_type!=1||c->id<1000||(e.appearance.flags2&(fieldboss::Named|fieldboss::Boss|fieldboss::Mini|fieldboss::Friendly))||e.HP<=0||e.current_ability||e.stun_time>0)continue;
+   if(e.hostility_type!=1||!fieldboss::nativeId(c->id)||(e.appearance.flags2&(fieldboss::Named|fieldboss::Boss|fieldboss::Mini|fieldboss::Friendly))||e.HP<=0||e.current_ability||e.stun_time>0)continue;
    if(savedRace!=-1&&e.race!=(unsigned)savedRace)continue;
    fieldboss::Site p{block(e.position.x),block(e.position.y)};if(!fieldboss::withinRadius(p,site,96)||!fieldboss::withinRadius(p,playerPos,192)||fieldboss::withinRadius(p,playerPos,32))continue;
    if(!(owner(g->world,p)==region))continue;
