@@ -27,3 +27,7 @@ Phone log confirmed installation and generated chunks1,128,256,384, translating5
 
 ## WorldMotion mobile75
 WorldMotion built from the same phone-guard source. Reduced motion config is config/mobile75/WorldMotion.ini: leaf amplitude12, wind75, cloud drift48, cloud speed94; clouds/leaves stay enabled and animation range96 retained. Companion shadows preset: https://github.com/DieuDeGlace/MoonandShadow-mobile .
+
+## FieldBosses mobile update — 2026-10-11
+Upstream3123774 (including d1f8452) merged. Built against retained mobile executable guard timestamp5d93ab0d/image58a000; no changes to boss rules/glow algorithm. Inspected phone executable named-boss light call RVA d1882 opcodeE8 targets e2bd0 as required. RulesTest PASS: deterministic anchors, unsigned IDs, filtering, RGB consistency and light position/radius/sort preservation.
+Installed only FieldBosses.dll into actual GameNative Steam Cube World Mods; existing Enabled1/BossesPerRegion3/ActiveCap3 and progress retained. Copy result0; SHA2569699EBDCD6CA7976B73DB2FF65B7EA35E87371784836F9CF748C46178E30FCC8 matched phone. Log: Named-boss purple glow hook: installed. World loaded; no boss visual/reload encounter or GPU benchmark performed. Prior DLL backed up FieldBosses-before-3123774-mobile.dll; normal Steam-folder launcher restored. Existing terrain/wind/shadow/Geo unchanged. Copied fallback game not updated.
