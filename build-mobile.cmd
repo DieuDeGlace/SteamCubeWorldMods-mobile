@@ -11,3 +11,4 @@ if errorlevel 1 exit /b 1
 clang-cl /nologo /O2 /MD /std:c++17 /UNDEBUG /Ivendor\cwmods TerrainVariance\PlacementTest.cpp /Fobuild-mobile\PlacementTest.obj /Febuild-mobile\PlacementTest.exe
 if errorlevel 1 exit /b 1
 build-mobile\PlacementTest.exe
+
