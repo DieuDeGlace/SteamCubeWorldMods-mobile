@@ -456,6 +456,13 @@ struct Saved {
         c->VSSetConstantBuffers(2, 1, &cb);
     }
 };
+static unsigned long long animationFrameTime = 0;
+static unsigned long long animationTime(unsigned long long now) {
+    return animationFrameTime && animationFrameTime >= origin && animationFrameTime <= now &&
+                   now - animationFrameTime < 1000
+               ? animationFrameTime
+               : now;
+}
 static void prepare(ID3D11DeviceContext *c, Saved &s) {
     if (internal || c->GetType() != D3D11_DEVICE_CONTEXT_IMMEDIATE)
         return;
@@ -501,7 +508,7 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
     }
     bool isCloud = cloudsEnabled && nativeScene::cloud(w, s.vb);
     if (isCloud) {
-        double t = (now - origin) * .001 * windSpeed * cloudSpeed;
+        double t = (animationTime(now) - origin) * .001 * windSpeed * cloudSpeed;
         auto offset = wind::cloud(t, cloudDistance);
         world[3] += offset.x;
         world[7] += offset.y;
@@ -522,7 +529,7 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
                 cached == meshes.end() ? build(c, s.vb, w, found->second) : cached->second.get();
             if (m) {
                 m->lastUsed = now;
-                if (m->animated && animate(*m, c, world, now)) {
+                if (m->animated && animate(*m, c, world, animationTime(now))) {
                     c->IAGetInputLayout(&s.layout);
                     UINT stride = sizeof(Vertex), offset = 0;
                     c->IASetVertexBuffers(0, 1, &m->animated, &stride, &offset);
@@ -673,11 +680,16 @@ extern "C" __declspec(dllexport) BOOL WINAPI QueryCloudDrift(float *out) {
         return FALSE;
     out[0] = out[1] = 0;
     if (motion::enabled && motion::cloudsEnabled && motion::origin) {
-        auto offset = wind::cloud((GetTickCount64() - motion::origin) * .001 * motion::windSpeed *
-                                      motion::cloudSpeed,
+        auto offset = wind::cloud((motion::animationTime(GetTickCount64()) - motion::origin) *
+                                      .001 * motion::windSpeed * motion::cloudSpeed,
                                   motion::cloudDistance);
         out[0] = offset.x;
         out[1] = offset.y;
     }
     return TRUE;
+}
+
+// Called at native depth clears by the experimental shadow mod. No vertex work.
+extern "C" __declspec(dllexport) void WINAPI BeginWorldMotionFrame() {
+    motion::animationFrameTime = GetTickCount64();
 }

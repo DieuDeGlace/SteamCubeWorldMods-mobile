@@ -6,6 +6,13 @@ static void STDMETHODCALLTYPE updateDirect(ID3D11DeviceContext *c, ID3D11Resourc
     c->UpdateSubresource(r, s, box, data, row, slice);
 }
 int main() {
+    motion::origin = 1;
+    motion::animationFrameTime = 100;
+    assert(motion::animationTime(110) == 100);
+    assert(motion::animationTime(145) == 100);
+    assert(motion::animationTime(1200) == 1200);
+    motion::animationFrameTime = 0;
+
     ID3D11Device *d = nullptr;
     ID3D11DeviceContext *c = nullptr;
     assert(SUCCEEDED(D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, 0, nullptr, 0,
