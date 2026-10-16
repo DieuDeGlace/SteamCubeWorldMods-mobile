@@ -3,6 +3,7 @@
 #include "cwsdk.h"
 #include "../NativeScene.h"
 #include "WindRules.h"
+#include "CpuHookTimer.h"
 #include <d3dcompiler.h>
 #include <vector>
 #include <unordered_map>
@@ -11,6 +12,7 @@
 #include <atomic>
 #include <algorithm>
 namespace motion {
+static CpuHookTimer hookTimer;
 template <class T> void drop(T *&p) {
     if (p) {
         p->Release();
@@ -116,7 +118,8 @@ static UINT constantSize(ID3D11Resource *r) {
     D3D11_BUFFER_DESC d{};
     b->GetDesc(&d);
     b->Release();
-    return (d.BindFlags & D3D11_BIND_CONSTANT_BUFFER) && d.ByteWidth <= 512 ? d.ByteWidth : 0;
+    // Only the projection, camera and world matrices are read by this mod.
+    return (d.BindFlags & D3D11_BIND_CONSTANT_BUFFER) && d.ByteWidth == 64 ? 64 : 0;
 }
 static bool readConstant(ID3D11DeviceContext *, ID3D11Buffer *b, float *out) {
     if (!b)
@@ -442,18 +445,19 @@ struct Saved {
     ID3D11Buffer *vb = nullptr, *cb = nullptr;
     ID3D11InputLayout *layout = nullptr;
     UINT stride = 0, offset = 0;
-    bool changed = false;
+    bool geometryChanged = false, worldChanged = false;
     ~Saved() {
         drop(vb);
         drop(cb);
         drop(layout);
     }
     void restore(ID3D11DeviceContext *c) {
-        if (!changed)
-            return;
-        c->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
-        c->IASetInputLayout(layout);
-        c->VSSetConstantBuffers(2, 1, &cb);
+        if (geometryChanged) {
+            c->IASetVertexBuffers(0, 1, &vb, &stride, &offset);
+            c->IASetInputLayout(layout);
+        }
+        if (worldChanged)
+            c->VSSetConstantBuffers(2, 1, &cb);
     }
 };
 static unsigned long long animationFrameTime = 0;
@@ -480,6 +484,17 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
         internal = false;
         return;
     }
+    // Most native model draws cannot move. Reject them before fetching six
+    // constant buffers and reading three matrices. Chunk membership and the
+    // two native cloud sprite buffers are the same tests used below.
+    bool isCloud = cloudsEnabled && nativeScene::cloud(w, s.vb);
+    auto chunk = chunks.end();
+    if (!isCloud && leavesEnabled)
+        chunk = chunks.find(s.vb);
+    if (!isCloud && chunk == chunks.end()) {
+        internal = false;
+        return;
+    }
     ID3D11Buffer *buffers[6]{};
     c->VSGetConstantBuffers(0, 6, buffers);
     UINT expected[] = {64, 64, 64, 16, 320, 48};
@@ -495,7 +510,7 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
     if (native)
         native = readConstant(c, buffers[2], world) && readConstant(c, buffers[0], projection) &&
                  readConstant(c, buffers[1], view);
-    if (native) {
+    if (native && isCloud) {
         s.cb = buffers[2];
         s.cb->AddRef();
     }
@@ -506,7 +521,6 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
         internal = false;
         return;
     }
-    bool isCloud = cloudsEnabled && nativeScene::cloud(w, s.vb);
     if (isCloud) {
         double t = (animationTime(now) - origin) * .001 * windSpeed * cloudSpeed;
         auto offset = wind::cloud(t, cloudDistance);
@@ -516,17 +530,15 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
         cloudMatrix->SetPrivateData(nativeScene::cloudDriftGuid, sizeof(appliedDrift),
                                     appliedDrift);
         c->UpdateSubresource(cloudMatrix, 0, nullptr, world, 0, 0);
-        c->IAGetInputLayout(&s.layout);
         c->VSSetConstantBuffers(2, 1, &cloudMatrix);
-        s.changed = true;
+        s.worldChanged = true;
         cloudDraws++;
     } else if (leavesEnabled && fabsf(world[0] - 1) < .001f && fabsf(world[5] - 1) < .001f &&
                fabsf(world[10] - 1) < .001f) {
-        auto found = chunks.find(s.vb);
-        if (found != chunks.end()) {
+        if (chunk != chunks.end()) {
             auto cached = meshes.find(s.vb);
             auto m =
-                cached == meshes.end() ? build(c, s.vb, w, found->second) : cached->second.get();
+                cached == meshes.end() ? build(c, s.vb, w, chunk->second) : cached->second.get();
             if (m) {
                 m->lastUsed = now;
                 if (m->animated && animate(*m, c, world, animationTime(now))) {
@@ -534,7 +546,7 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
                     UINT stride = sizeof(Vertex), offset = 0;
                     c->IASetVertexBuffers(0, 1, &m->animated, &stride, &offset);
                     c->IASetInputLayout(floatLayout);
-                    s.changed = true;
+                    s.geometryChanged = true;
                     leafDraws++;
                 }
             }
@@ -544,15 +556,27 @@ static void prepare(ID3D11DeviceContext *c, Saved &s) {
 }
 static void STDMETHODCALLTYPE di(ID3D11DeviceContext *c, UINT n, UINT start, INT base) {
     Saved saved;
-    prepare(c, saved);
+    {
+        CpuHookTimer::Scope timer(hookTimer);
+        prepare(c, saved);
+    }
     oldDI(c, n, start, base);
-    saved.restore(c);
+    {
+        CpuHookTimer::Scope timer(hookTimer);
+        saved.restore(c);
+    }
 }
 static void STDMETHODCALLTYPE draw(ID3D11DeviceContext *c, UINT n, UINT start) {
     Saved saved;
-    prepare(c, saved);
+    {
+        CpuHookTimer::Scope timer(hookTimer);
+        prepare(c, saved);
+    }
     oldD(c, n, start);
-    saved.restore(c);
+    {
+        CpuHookTimer::Scope timer(hookTimer);
+        saved.restore(c);
+    }
 }
 static HRESULT STDMETHODCALLTYPE map(ID3D11DeviceContext *c, ID3D11Resource *r, UINT sub,
                                      D3D11_MAP type, UINT flags, D3D11_MAPPED_SUBRESOURCE *out) {
@@ -653,6 +677,9 @@ class WorldMotion : public GenericMod {
   public:
     void Initialize() override {
         motion::attach();
+    }
+    void OnPresent(IDXGISwapChain *, UINT, UINT) override {
+        motion::hookTimer.present("Mods\\WorldMotion.log");
     }
 };
 static_assert(sizeof(GenericMod) == 0x428, "Loader API 7.3 required");

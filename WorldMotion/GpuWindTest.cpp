@@ -74,6 +74,48 @@ int main() {
                std::abs(result[i].p[1] - (y + offset.y) / 255) < .000002);
     }
     c->Unmap(staging, 0);
+    {
+        // Restoring a cloud changes only b2; restoring foliage changes only
+        // vertex input. Neither path may overwrite another mod's other state.
+        ID3D11Buffer *originalWorld = nullptr, *currentWorld = nullptr;
+        D3D11_BUFFER_DESC cb{};
+        cb.ByteWidth = 64;
+        cb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+        assert(SUCCEEDED(d->CreateBuffer(&cb, nullptr, &originalWorld)));
+        assert(SUCCEEDED(d->CreateBuffer(&cb, nullptr, &currentWorld)));
+        assert(motion::constantSize(originalWorld) == 64);
+        cb.ByteWidth = 320;
+        ID3D11Buffer *lights = nullptr;
+        assert(SUCCEEDED(d->CreateBuffer(&cb, nullptr, &lights)));
+        assert(motion::constantSize(lights) == 0);
+        motion::Saved saved;
+        saved.cb = originalWorld;
+        originalWorld->AddRef();
+        saved.vb = m.original;
+        m.original->AddRef();
+        saved.stride = 8;
+        c->VSSetConstantBuffers(2, 1, &currentWorld);
+        saved.geometryChanged = true;
+        saved.restore(c);
+        ID3D11Buffer *bound = nullptr;
+        c->VSGetConstantBuffers(2, 1, &bound);
+        assert(bound == currentWorld);
+        motion::drop(bound);
+        UINT stride = sizeof(motion::Vertex), offset = 0;
+        c->IASetVertexBuffers(0, 1, &m.animated, &stride, &offset);
+        saved.geometryChanged = false;
+        saved.worldChanged = true;
+        saved.restore(c);
+        c->VSGetConstantBuffers(2, 1, &bound);
+        assert(bound == originalWorld);
+        motion::drop(bound);
+        c->IAGetVertexBuffers(0, 1, &bound, &stride, &offset);
+        assert(bound == m.animated && stride == sizeof(motion::Vertex));
+        motion::drop(bound);
+        motion::drop(originalWorld);
+        motion::drop(currentWorld);
+        motion::drop(lights);
+    }
     motion::drop(staging);
     motion::drop(c);
     motion::drop(d);
