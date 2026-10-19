@@ -3,7 +3,14 @@
 #include <cstring>
 #include <cstdint>
 #include "FieldBossRules.h"
+// Recolours the light of named bosses purple by redirecting the one native
+// call that appends a boss's light: the 5-byte CALL at BOSS_LIGHT_CALL is
+// pointed at a nearby relay page that jumps to glow(), which tints the light
+// and forwards it to the original append function.
 namespace fieldglow {
+// RVAs in the supported cubeworld.exe.
+constexpr uintptr_t BOSS_LIGHT_CALL = 0xd1882;
+constexpr uintptr_t APPEND_LIGHT = 0xe2bd0;
 // Native light vector entries are 48 bytes. Only the RGB is changed.
 struct Light {
     int64_t position[3];
@@ -20,17 +27,20 @@ static void glow(void *collector, const Light *input) {
     fieldboss::purple(tinted.color);
     append(collector, &tinted);
 }
+// Installs the redirect once. Returns false (changing nothing) if the call site
+// does not look exactly as expected, e.g. because another mod patched it.
 inline bool initialize() {
     if (installed)
         return true;
     auto base = (uintptr_t)GetModuleHandleW(nullptr);
-    auto site = (unsigned char *)(base + 0xd1882);
+    auto site = (unsigned char *)(base + BOSS_LIGHT_CALL);
     int32_t original = 0;
     memcpy(&original, site + 1, 4);
     // Verified named-boss light append call. Fail closed if another mod owns it.
-    if (site[0] != 0xe8 || (uintptr_t)(site + 5) + original != base + 0xe2bd0)
+    if (site[0] != 0xe8 || (uintptr_t)(site + 5) + original != base + APPEND_LIGHT)
         return false;
-    append = (void (*)(void *, const Light *))(base + 0xe2bd0);
+    append = (void (*)(void *, const Light *))(base + APPEND_LIGHT);
+    // A rel32 CALL can only reach +/-2 GB: allocate the relay page near the exe.
     unsigned char *relay = nullptr;
     for (uintptr_t offset = 0x10000; offset < 0x70000000 && !relay; offset += 0x10000) {
         for (int direction : {1, -1}) {
@@ -43,6 +53,7 @@ inline bool initialize() {
     }
     if (!relay)
         return false;
+    // jmp qword ptr [rip+0] followed by the absolute address of glow().
     const unsigned char code[] = {0xff, 0x25, 0, 0, 0, 0};
     memcpy(relay, code, sizeof(code));
     auto target = (uintptr_t)&glow;
@@ -59,6 +70,7 @@ inline bool initialize() {
         VirtualFree(relay, 0, MEM_RELEASE);
         return false;
     }
+    // Patch the call site to call the relay.
     unsigned char call[5] = {0xe8};
     int32_t rel = (int32_t)distance;
     memcpy(call + 1, &rel, 4);

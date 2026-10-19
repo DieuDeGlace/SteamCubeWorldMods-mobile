@@ -12,6 +12,7 @@ These mods were made by DieuDeGlace with the aid of AI: OpenAI ChatGPT/Codex. Or
 | [TerrainVariance](TerrainVariance) | Taller, smoother hills and mountains with aligned objects/water |
 | [MoonandShadow](https://github.com/DieuDeGlace/MoonandShadow) | Moon and shadows, moved to their own combined mod repository |
 | [FieldBosses](FieldBosses) | Named bosses based on existing native enemies |
+| [WaterLilies](WaterLilies) | Sparse native lily-pad/flower scenery on exposed freshwater |
 
 These sources target Windows x64, CubeModLoader API 7.3 and the inspected Steam executable (PE timestamp `0x5d93ab0d`, image size `0x5b7000`). Omega and Alpha executables are not supported. No proprietary game assets, saves, compiled game binaries or development tools are bundled. SDK headers are vendored so builds do not depend on a changing upstream revision.
 
