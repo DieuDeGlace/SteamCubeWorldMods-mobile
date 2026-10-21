@@ -80,8 +80,13 @@ inline double protectionWeight(double distance, double protectedRadius, double b
         return 0;
     return smooth((distance - protectedRadius) / blendWidth);
 }
-// 0 at sea level, reaching 1 64 blocks higher: coasts keep their native height.
+// Keep heights through 16 unchanged; reach full displacement at height 80.
 inline double shoreWeight(double nativeHeight) {
     return smooth((nativeHeight - 16.0) / 64.0);
+}
+// Water surfaces use the native shore columns. Fade displacement inland rather
+// than translating ocean floors and the implicit water ceiling with the hills.
+inline int landOffset(double nativeHeight, double addedHeight) {
+    return surfaceOffset(nativeHeight, addedHeight * shoreWeight(nativeHeight));
 }
 } // namespace terrain

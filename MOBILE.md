@@ -7,7 +7,8 @@ Tested 2026-10-10: Pixel 10 Pro / Android 17, GameNative 1.2.1, proton-11.0-2-ar
 ## Changes
 
 - NativeScene requires the tested phone executable image size 0x58a000 and retains timestamp 0x5d93ab0d. Unknown builds remain rejected.
-- TerrainVariance checks the complete object-cache builder prologue at RVA 0x31d700 including its verified leading 0x40 REX instruction prefix. The old signature omitted that byte. Both builder checks and all hook-entry checks remain enabled; no terrain algorithm changes.
+- TerrainVariance checks the complete object-cache builder prologue at RVA 0x31d700 including its verified leading 0x40 REX instruction prefix. The old signature omitted that byte. Both builder checks and all hook-entry checks remain enabled. The same correction is now applied to PC.
+- PC and mobile share the shoreline-preservation rule described below; terrain behavior is not specialized for the phone.
 
 ## Installation
 
@@ -52,3 +53,13 @@ Applied directly to mobile main from desktop `f7a9905218bcace214b9f7aaf3347d4c22
 Merged upstream main e028150, including current FieldBosses/terrain rules, WaterLilies, and DualHair's creation-only panel. The mobile PE identity cache and corrected leading 0x40 byte at the object-occupancy function are retained. WorldMotion keeps the accepted mobile draw-hook optimization and shared frame timestamp rather than regressing to the older main implementation during the readability merge. Mobile graphics presets are unchanged.
 
 Built five Windows x64 DLLs with clang-cl /O2. Seven suites passed: water-lily rules, wind rules, terrain bounds, fixed-point placement, boss rules/glow, DualHair rules and GPU wind/state restoration. DualHair character colors and existing state files are preserved during installation. FieldBosses, WaterLilies and DualHair now live in this mobile fork alongside TerrainVariance and WorldMotion. Device integration and rollback results are recorded with the phone-sync manifest.
+
+## Shared PC/mobile water correction (2026-10-21)
+
+TerrainVariance was translating underwater ground and its implicit water ceiling along with the hills. In the tested mobile world that removed the native water surface. Preserving native underwater/low-shore columns and smoothly fading in displacement from native heights 16 to 80 restored visible water while TerrainVariance stayed enabled. Inland heights at or above 80 retain the previous full displacement. PC and mobile now have byte-identical TerrainVariance.cpp, TerrainRules.h and TerrainRulesTest.cpp; only the shared executable-validation helpers differ between repositories. Both installed configurations use Amplitude=68, Scale=768 and MountainAmplitude=80.
+
+All seven suites passed separately for the PC and mobile builds. Added regression coverage checks unchanged underwater/coastal offsets, full inland displacement and a smooth transition. The installed phone DLL was read back and matched the build SHA-256. After world entry on Pixel 10 Pro / Android 17, the user confirmed water was visible with TerrainVariance re-enabled and the visual mods restored. The original TAA INI was restored; depth-buffer changes were not needed. This is a short shoreline integration check, not every-biome or long-session validation.
+
+The PC log also revealed that TerrainVariance had been disabling itself at the object-cache-builder signature check. PC now checks the verified leading 0x40 prefix too, with all five hook/builder signatures checked against the private native runtime fixture. The PC DLL was installed and byte-verified with settings preserved; PC gameplay was not launched during this check. On the next PC launch terrain variance can therefore become active where the older binary had been rejecting the function. Existing character positions can be above or below regenerated terrain when changing terrain rules.
+
+Only TerrainVariance.dll changed in this correction. No game executables, saved worlds, character data or runtime settings are bundled. Test screenshots and generated transfer/build files were removed; compact rollback archives and source/build records are retained locally.

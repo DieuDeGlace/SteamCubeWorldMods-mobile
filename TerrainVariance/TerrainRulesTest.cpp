@@ -35,6 +35,19 @@ int main() {
     assert(terrain::protectionWeight(320, 192, 128) == 1);
     assert(terrain::shoreWeight(0) == 0 && terrain::shoreWeight(16) == 0 &&
            terrain::shoreWeight(80) == 1);
+    // Regress the missing-water case: wet and low shore columns never move,
+    // while inland hills keep the full original displacement and smooth taper.
+    for (int added = -96; added <= 96; ++added) {
+        for (double height : {-120., -1.5, 0., .25, 8., 16.})
+            assert(terrain::landOffset(height, added) == 0);
+        for (double height : {80., 112.5, 160., 256.})
+            assert(terrain::landOffset(height, added) == terrain::surfaceOffset(height, added));
+        for (double height = 16.; height <= 80.; height += .125) {
+            int a = terrain::landOffset(height, added);
+            int b = terrain::landOffset(height + .125, added);
+            assert(std::abs(b - a) <= 2);
+        }
+    }
     for (int x = -2048; x < 2048; x += 7)
         for (int y = -512; y < 512; y += 19) {
             double h = terrain::variation(x, y, 42, 18, 384);
